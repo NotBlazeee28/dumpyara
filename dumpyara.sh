@@ -39,35 +39,25 @@ else
     LOGW "GitHub token not found. Dumping just locally..."
 fi
 
-# Check whether input is a string or a file
-if echo "${1}" | grep -e '^\(https\?\|ftp\)://.*$' > /dev/null; then
-    # Set 'URL' to appended string
+# Check whether input is a URL or a file
+if echo "${1}" | grep -E '^(https?|ftp)://.*$' > /dev/null; then
+    # Set original URL
     URL="${1}"
 
-    # Override '${URL}' with best possible mirror of it
+    # Handle Xiaomi mirror replacement
     case "${URL}" in
-        # For Xiaomi: replace '${URL}' with (one of) the fastest mirror
         *"d.miui.com"*)
-            # Do not run this loop in case we're already using one of the reccomended mirrors
-            if ! echo "${URL}" | rg -q 'cdnorg|bkt-sgp-miui-ota-update-alisgp'; then
-                # Set '${URL_ORIGINAL}' and '${FILE_PATH}' in case we might need to roll back
+            if ! echo "${URL}" | grep -qE 'cdnorg|bkt-sgp-miui-ota-update-alisgp'; then
                 URL_ORIGINAL=$(echo "${URL}" | sed -E 's|(https://[^/]+).*|\1|')
                 FILE_PATH=$(echo "${URL#*d.miui.com/}" | sed 's/?.*//')
-
-                # Array of different possible mirrors
                 MIRRORS=(
                     "https://cdnorg.d.miui.com"
                     "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com"
                     "https://bn.d.miui.com"
                     "${URL_ORIGINAL}"
                 )
-
-                # Check back and forth for the best available mirror
                 for URLS in "${MIRRORS[@]}"; do
-                    # Change mirror's domain with one(s) from array
                     URL=${URLS}/${FILE_PATH}
-
-                    # Be sure that the mirror is available. Once found, break the loop 
                     if [ "$(curl -I -sS "${URL}" | head -n1 | cut -d' ' -f2)" == "404" ]; then
                         LOGW "${URLS} is not available. Trying with other mirror(s)..."
                     else
@@ -77,42 +67,41 @@ if echo "${1}" | grep -e '^\(https\?\|ftp\)://.*$' > /dev/null; then
                 done
             fi
             ;;
-            # For Pixeldrain: replace the link with a direct one
-            *"pixeldrain.com/u"*)
-                LOGI "Replacing with best available mirror."
-                URL="https://pd.cybar.xyz/${URL##*/}"
+        *"pixeldrain.com/u"*)
+            LOGI "Replacing with best available mirror."
+            URL="https://pd.cybar.xyz/${URL##*/}"
             ;;
-            *"pixeldrain.com/d"*)
-                LOGI "Replacing with direct download link."
-                URL="https://pixeldrain.com/api/filesystem/${URL##*/}"
+        *"pixeldrain.com/d"*)
+            LOGI "Replacing with direct download link."
+            URL="https://pixeldrain.com/api/filesystem/${URL##*/}"
             ;;
-        esac
-    
-    # Download to the 'working/' directory
-    cd "${PWD}"/working/ || exit
+    esac
 
-    # Start downloading from 'aria2c' and, if failed, 'wget'
+    # Create input directory if not exist
+    mkdir -p "${PWD}/input"
+
+    # Sanitize file name and path
+    FILENAME="$(basename "${URL}")"
+    SAFE_FILENAME=$(echo "${FILENAME}" | inline-detox)
+    DEST_PATH="${PWD}/input/${SAFE_FILENAME}"
+
+    # Start downloading
     LOGI "Started downloading file from link... ($(date +%R:%S))"
 
-    aria2c -q -s16 -x16 --check-certificate=false "${URL}" || {
-        rm -fv ./input/*
-        wget -q --no-check-certificate "${URL}" || LOGF "Failed to downlaod file. Aborting."
+    aria2c -q -s16 -x16 --check-certificate=false -d "${PWD}/input" -o "${SAFE_FILENAME}" "${URL}" || {
+        rm -fv "${DEST_PATH}"
+        wget -q --no-check-certificate -O "${DEST_PATH}" "${URL}" || LOGF "Failed to download file. Aborting."
     }
 
     LOGI "Finished downloading file. ($(date +%R:%S))"
 
-    # Check for 'Content-Disposition'
-    if [[ ! -f "$(echo "${URL##*/}" | inline-detox)" ]]; then
-        URL=$(wget --server-response --spider "${URL}" 2>&1 | awk -F"filename=" '{print $2}')
-    fi
+    # Set INPUT variable for rest of script
+    INPUT="${DEST_PATH}"
 
-    # Sanitize final file
-    detox "${URL##*/}"
-    INPUT=$(echo "${URL##*/}" | inline-detox)
 else
-    # Otherwise, check if it's a file or directory
+    # Local file mode
     if [[ -e ${1} ]]; then
-        INPUT=${1}
+        INPUT="${1}"
     else
         LOGF "Invalid input. Aborting."
     fi
