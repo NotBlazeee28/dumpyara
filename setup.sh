@@ -60,7 +60,6 @@ if command -v apt > /dev/null 2>&1; then
 # 'dnf' (Fedora)
 elif command -v dnf > /dev/null 2>&1; then
 # Perform repositories updates to prevent dead mirrors
-
     LOGI "Updating repositories..."
     $sudo_cmd dnf update -y --refresh > /dev/null 2>&1
 
@@ -72,10 +71,14 @@ elif command -v dnf > /dev/null 2>&1; then
     done
 # 'pacman' (Arch Linux)
 elif command -v pacman > /dev/null 2>&1; then
+# Perform repositories updates to prevent dead mirrors
+    LOGI "Updating repositories..."
+    $sudo_cmd pacman -Syu --noconfirm > /dev/null 2>&1
+
     # Install required packages in form of a 'for' loop
     for package in unace unrar zip unzip p7zip sharutils uudeview arj cabextract file-roller dtc python-pip brotli axel gawk aria2 detox cpio lz4 ripgrep; do
         LOGI "Installing '${package}'..."
-        $sudo_cmd pacman -Syu --noconfirm --needed "${package}" > /dev/null 2>&1 || \
+        $sudo_cmd pacman -S --noconfirm --needed "${package}" > /dev/null 2>&1 || \
             LOGE "Failed installing '${package}'."
     done
 #other
