@@ -40,18 +40,22 @@ fi
 if command -v apt > /dev/null 2>&1; then
     # Perform repositories updates to prevent dead mirrors
     LOGI "Updating repositories..."
-    $sudo_cmd apt update && $sudo_cmd apt upgrade > /dev/null 2>&1
+    $sudo_cmd apt update > /dev/null 2>&1 && $sudo_cmd apt upgrade -y > /dev/null 2>&1
 
     # Install required packages in form of a 'for' loop
     for package in unace unrar zip unzip p7zip-full p7zip-rar sharutils rar uudeview mpack arj cabextract device-tree-compiler liblzma-dev python3-pip brotli liblz4-tool axel gawk aria2 detox cpio rename liblz4-dev curl ripgrep; do
         LOGI "Installing '${package}'..."
-        $sudo_cmd apt install  -y "${package}" > /dev/null 2>&1 || \
+        if ! $sudo_cmd apt install -y "${package}" > /dev/null 2>&1; then
             if [ $package == "liblz4-tool" ]; then
                 LOGW "Failed to install liblx4-tool, trying lz4 instead"
-                $sudo_cmd apt install -y lz4 > /dev/null 2>&1 || \
+                if $sudo_cmd apt install -y lz4 > /dev/null 2>&1; then
+                    continue
+                else
                     LOGE "Failed to install lz4"
+                fi
             fi
             LOGE "Failed installing '${package}'."
+        fi
     done
 # 'dnf' (Fedora)
 elif command -v dnf > /dev/null 2>&1; then
