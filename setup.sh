@@ -48,7 +48,7 @@ if command -v apt > /dev/null 2>&1; then
         $sudo_cmd apt install  -y "${package}" > /dev/null 2>&1 || \
             if [ $package == "liblz4-tool" ]; then
                 LOGW "Failed to install liblx4-tool, trying lz4 instead"
-                $sudo_cmd apt install -y > /dev/null 2>&1 || \
+                $sudo_cmd apt install -y lz4 > /dev/null 2>&1 || \
                     LOGE "Failed to install lz4"
             fi
             LOGE "Failed installing '${package}'."
