@@ -40,12 +40,17 @@ fi
 if command -v apt > /dev/null 2>&1; then
     # Perform repositories updates to prevent dead mirrors
     LOGI "Updating repositories..."
-    $sudo_cmd apt update > /dev/null 2>&1
+    $sudo_cmd apt update && $sudo_cmd apt upgrade > /dev/null 2>&1
 
     # Install required packages in form of a 'for' loop
     for package in unace unrar zip unzip p7zip-full p7zip-rar sharutils rar uudeview mpack arj cabextract device-tree-compiler liblzma-dev python3-pip brotli liblz4-tool axel gawk aria2 detox cpio rename liblz4-dev curl ripgrep; do
         LOGI "Installing '${package}'..."
         $sudo_cmd apt install  -y "${package}" > /dev/null 2>&1 || \
+            if [ $package == "liblz4-tool" ]; then
+                LOGW "Failed to install liblx4-tool, trying lz4 instead"
+                $sudo_cmd apt install -y > /dev/null 2>&1 || \
+                    LOGE "Failed to install lz4"
+            fi
             LOGE "Failed installing '${package}'."
     done
 # 'dnf' (Fedora)
@@ -64,6 +69,9 @@ elif command -v pacman > /dev/null 2>&1; then
         $sudo_cmd pacman -Sy --noconfirm --needed "${package}" > /dev/null 2>&1 || \
             LOGE "Failed installing '${package}'."
     done
+#other
+else
+    LOGF "Your distro is unsupported. Please install the needed packages yourself."
 fi
 
 # Install 'uv' through pipx
